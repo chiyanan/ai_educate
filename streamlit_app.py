@@ -91,7 +91,7 @@ class Asking:
         conversation_id = client.create_conversation()
         file_id = client.upload_local_file(conversation_id, random_file)
         # 引用上传的文档，开始对话
-        message = client.run(conversation_id, "根据图片中的内容以及数据库中模拟答辩的通用问题，生成对应的一个问题，要求优先出数据中通用问题，在出与图片中展示内容相关的问题。", file_ids=[file_id, ],)
+        message = client.run(conversation_id, "根据图片中的内容以及数据库中模拟答辩的通用问题，随机的生成一个问题，要求数据中通用问题随机概率大，依据图片中展示内容生成的问题随机的概率小。", file_ids=[file_id, ],)
         st.write("🤔 提问: " + message.content.answer)
 
         return message.content.answer
