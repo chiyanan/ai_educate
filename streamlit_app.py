@@ -1,6 +1,5 @@
 import os
 import random
-import shutil
 import fitz
 import appbuilder
 import streamlit as st
@@ -13,22 +12,25 @@ if not os.path.exists("upload_path"):
 if "INPUT_TOPIC" not in st.session_state:
     st.session_state["INPUT_TOPIC"] = ""
 
+if "INPUT_SPECIALIZED" not in st.session_state:
+    st.session_state["INPUT_SPECIALIZED"] = ""
+
 # 设置环境变量
 os.environ["APPBUILDER_TOKEN"] = "bce-v3/ALTAK-VlKbIY5HV9PlcHYw4DZVk/9006ccb56f1756c923064da093c78752fa7c0920"
 app_id = "10bfb79d-a65e-4b16-b306-48cc2353514e"
 
 # 初始化智能体
 client = appbuilder.AppBuilderClient(app_id)
-# 创建第一次默认会话
-conversation_id = client.create_conversation()
 
 # 页面标题和说明文字
 st.set_page_config(page_title="答辩助手")
 st.title("👩🏻‍🏫 论文模拟答辩助手")
-st.write("👉🏼 请输入你论文主题，并上传PDF类型的论文文件！")
+st.write("👉🏼 请输入你的专业以及论文题目，并上传PDF类型的论文文件！")
 
 # 选择文件并重命名
-thesis_topic = st.text_input("论文主题", value=st.session_state["INPUT_TOPIC"], max_chars=None, key=None, type='default')
+thesis_specialized = st.text_input("学习专业", value=st.session_state["INPUT_SPECIALIZED"], max_chars=None, key=None, type='default')
+
+thesis_topic = st.text_input("论文题目", value=st.session_state["INPUT_TOPIC"], max_chars=None, key=None, type='default')
 
 # 上传论文文件
 uploaded_file = st.file_uploader("选择文件", type="pdf")
@@ -75,7 +77,6 @@ class Asking:
     def asking_questions(self):
         # 获取源文件夹中所有文件名
         image_files = os.listdir("image_path")
-
         # 设置你想要随机获取的文件索引范围
         min_index = 3  # 可以根据需要调整
         max_index = len(image_files) - 3  # 可以根据需要调整
@@ -84,22 +85,22 @@ class Asking:
         # 获取随机文件的完整路径
         random_file = os.path.join("image_path/", image_files[random_index])
 
-        # # 随机获取其中一个文件
-        # random_file = random.sample(image_files, 1)
-        # # 上传随机选择的文件
-        # local_file_path = "image_path/" + random_file[0]
+        print("随机选择的页数：" + random_file)
 
-        print("随机选择的页数-2：" + random_file)
+        # 创建一个对话ID
+        conversation_id = client.create_conversation()
         file_id = client.upload_local_file(conversation_id, random_file)
         # 引用上传的文档，开始对话
-        message = client.run(conversation_id, "依据上传的论文文件生成1个问题？", file_ids=[file_id, ], stream=False)
-        st.write("🤔问题: " + message.content.answer)
+        message = client.run(conversation_id, "根据图片中的内容以及数据库中模拟答辩的通用问题，生成对应的一个问题，要求优先出数据中通用问题，在出与图片中展示内容相关的问题。", file_ids=[file_id, ],)
+        st.write("🤔 提问: " + message.content.answer)
 
-        prompt = st.text_input("请回答：", value="", max_chars=None, key=None, type='default')
-        query = "请针对问题" + message.content.answer + ",以及我的回答" + prompt + "进行评价!"
-        message = client.run(conversation_id, query,)
-        st.write("🧑‍🏫很棒: " + message.content.answer)
+        return message.content.answer
+            
 
+def send_dialogue(query):
+    conversation_id = client.create_conversation()
+    message = client.run(conversation_id, query,)
+    return message.content.answer
 
 # 下面展示聊天页面逻辑
 chat = None
@@ -107,57 +108,45 @@ if st.session_state["INPUT_TOPIC"] != "":
     chat = st.session_state["INPUT_TOPIC"]
 
 if chat:
-    with st.container():
-        st.header("👩🏻‍🏫开始对话吧")
-        # 获取源文件夹中所有文件名
-        image_files = os.listdir("image_path")
-        # 设置你想要随机获取的文件索引范围
-        min_index = 3  # 可以根据需要调整
-        max_index = len(image_files) - 3  # 可以根据需要调整
-        # 在指定范围内随机选择一个索引
-        random_index = random.randint(min_index, max_index)
-        # 获取随机文件的完整路径
-        random_file = os.path.join("image_path/", image_files[random_index])
+    container = st.container()
+    with container:
+        st.header("👩🏻‍🏫 开始对话吧")
+        st.write("👉🏼 只有三次提问机会，请珍惜使用机会，并确保提问与论文题目相关，避免出现题目无关的情况。")
 
-        # # 随机获取其中一个文件
-        # random_file = random.sample(image_files, 1)
-        # # 上传随机选择的文件
-        # local_file_path = "image_path/" + random_file[0]
+        # 初始化 session_state
+        if "count" not in st.session_state:
+            st.session_state.count = 0
 
-        print("随机选择的页数：" + random_file)
-        file_id = client.upload_local_file(conversation_id, random_file)
-        # 引用上传的文档，开始对话
-        message = client.run(conversation_id, "依据上传的论文文件生成1个问题？", file_ids=[file_id, ], stream=False)
-        st.write("🤔 第一个问题: " + message.content.answer)
+        if "result" not in st.session_state:
+            st.session_state.result = ""
 
-        prompt = st.text_input("回答：", value="", max_chars=None, key=None, type='default')
-        query = "请针对问题" + message.content.answer + ",以及我的回答" + prompt + "进行评价!"
+        if "input_key" not in st.session_state:
+            st.session_state.input_key = ""
 
-        sendd = st.button("发送")
-        if sendd:
-            message = client.run(conversation_id, query,)
-            st.write("🧑‍🏫很棒: " + message.content.answer)
-
-        continued = st.button("💪 继续提问...")
+        continued = st.button("💪 生成问题")
         if continued:
             asking = Asking(continued)
-            asking.asking_questions()
+            st.session_state.result = asking.asking_questions()
 
+        if st.session_state.result:
+            # 用户输入回答
+            prompt = st.text_input("回答：", value=st.session_state.input_key, key="text_input_key")
+            sended = st.button("发送")
+            if sended:
+                if prompt:
+                    query = f"请针对以上提出的问题：{st.session_state.result} ,以及用户输入的回答：{prompt} ,进行点评，并且给出相应的建议，避免下次出现问题。如果回答与提出的问题无关联，则直接回复，跟 题目无关，并鼓励好好作答。如果回答与提出的问题有相关性，则给出相应的建议，鼓励好好作答。最终结果需要展示出问题，回答，建议，以及建议的回答。"
+                    msg = send_dialogue(query)
+                    st.write("🧑‍🏫 " + msg)
+                    st.session_state.count += 1
+                    # 清空输入框
+                    st.session_state.input_key = ""
+                    # st.experimental_rerun()
+                else:
+                    st.write("🧑‍🏫 请输入回答...")
 
-        closed = st.button("🫣 结束对话...")
-        if closed:
-            # 清除输入
-            st.session_state["INPUT_TOPIC"] = ""
-
-            # 清空文件夹文件，在创建新的文件夹
-            shutil.rmtree('upload_path')
-            os.mkdir('upload_path')
-            shutil.rmtree('image_path')
-            os.mkdir('image_path')
-            uploaded_file = None
-            thesis_topic = None
-            st.rerun()
-
+        if st.session_state.count >= 3:
+            st.write("****************************************************")
+            st.write("👋🏻👋🏻👋🏻 对话结束，感谢使用。如需再次练习，请刷新页面，重新开始。")
 else:
     with st.container():
-        st.warning("👮🏻‍ 请输入论文主题, 并上传文件...")
+        st.warning("👮🏻‍ 请输入论文题目, 并上传文件...")
