@@ -91,7 +91,7 @@ class Asking:
         conversation_id = client.create_conversation()
         file_id = client.upload_local_file(conversation_id, random_file)
         # 引用上传的文档，开始对话
-        query = f"根据{thesis_specialized}的专业知识和图片中的内容以及数据库中模拟答辩的通用问题，只能生成对应的一个问题，要求优先出数据中通用问题，并不需要过多解释。 "
+        query = f"根据{thesis_topic}的论文题目相关知识和图片中的内容以及数据库中模拟答辩的通用问题，只能生成对应的一个问题，要求优先出数据中通用问题，并不需要过多解释。 "
         message = client.run(conversation_id, query, file_ids=[file_id, ],)
         st.write("🤔 提问: " + message.content.answer)
 
